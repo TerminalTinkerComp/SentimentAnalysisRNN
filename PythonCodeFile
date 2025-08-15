@@ -1,0 +1,88 @@
+# Import necessary libraries
+import pandas as pd
+import string
+import spacy
+from sklearn.model_selection import train_test_split
+from tensorflow.keras.preprocessing.text import Tokenizer
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Embedding, LSTM, Dropout, Dense
+
+# Load spaCy model for text processing
+try:
+    nlp = spacy.load("en_core_web_sm")
+except OSError:
+    print("Downloading English spaCy model...")
+    spacy.cli.download("en_core_web_sm")
+    nlp = spacy.load("en_core_web_sm")
+
+# 1. Load Data
+print("Step 1: Loading data...")
+data_url = "https://drive.google.com/file/d/18QRKl-1rD6Q83ojv8gemB3JGNhyNGeKY/view?usp=sharing"
+file_id = data_url.split("/")[-2]
+download_link = f"https://docs.google.com/uc?export=download&id={file_id}"
+data = pd.read_csv(download_link, sep="\t", header=None)
+print("Data loaded! Total reviews found:", len(data))
+
+# 2. Preprocess Text
+print("\nStep 2: Cleaning data...")
+stopwords = spacy.lang.en.stop_words.STOP_WORDS
+def clean_text(text):
+    text = text.lower()
+    text = text.translate(str.maketrans('', '', string.punctuation))
+    doc = nlp(text)
+    cleaned_text = " ".join([token.lemma_ for token in doc if token.text not in stopwords])
+    return cleaned_text
+
+data[0] = data[0].apply(clean_text)
+print("Text cleaned")
+
+# 3. Prepare Data for Model
+print("\nStep 3: Preparing data...")
+reviews, labels = data[0], data[1]
+train_reviews, test_reviews, train_labels, test_labels = train_test_split(reviews, labels, test_size=0.2, random_state=42)
+
+max_features = 5000
+max_words = 100
+tokenizer = Tokenizer(num_words=max_features)
+tokenizer.fit_on_texts(train_reviews)
+
+train_sequences = tokenizer.texts_to_sequences(train_reviews)
+train_padded = pad_sequences(train_sequences, maxlen=max_words)
+print("Data is ready!")
+
+# 4. Build and Train a Simpler Model
+print("\nStep 4: Building and training the model...")
+embedding_dim = 64
+model = Sequential([
+    # Converts words into numerical vectors
+    Embedding(max_features, embedding_dim),
+    LSTM(64),
+    # Prevents overfitting during training
+    Dropout(0.3),
+    # Final layer for classification
+    Dense(1, activation='sigmoid')
+])
+
+model.compile(loss='binary_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.fit(train_padded, train_labels.values, validation_split=0.2, epochs=10, verbose=0)
+print("Training complete!")
+
+# 5. Predict Sentiment
+print("\n\nStep 5: Predict sentiment based on user input.")
+print("Type 'quit' or 'exit' when finished.")
+
+while True:
+    user_input = input("\nEnter a review: ")
+    if user_input.lower() in ['quit', 'exit']:
+        print("Goodbye! ")
+        break
+    
+    cleaned_input = clean_text(user_input)
+    input_sequence = tokenizer.texts_to_sequences([cleaned_input])
+    input_padded = pad_sequences(input_sequence, maxlen=max_words)
+    
+    prediction = model.predict(input_padded, verbose=0)[0][0]
+    sentiment = "Positive" if prediction >= 0.5 else "Negative"
+    
+    print("Predicted Sentiment:", sentiment)
