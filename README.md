@@ -1,4 +1,4 @@
-# SentimentAnalysisRNN
+# SentimentAnalysisRNN using LSTM Model
 This sentiment analysis tool reads a review and predict whether it is positive or negative. It learns to do this by first studying movie reviews dataset from IMDb. 
 The Recurrent recurrent neural network (RNN) chosen for this usage case was Long Short-Term Memory (LSTM) model since it remembers the words it read before to understand the full meaning and context.  
 
